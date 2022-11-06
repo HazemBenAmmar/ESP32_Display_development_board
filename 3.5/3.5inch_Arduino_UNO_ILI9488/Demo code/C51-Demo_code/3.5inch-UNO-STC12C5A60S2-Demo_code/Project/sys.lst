@@ -1,0 +1,64 @@
+C51 COMPILER V9.53.0.0   SYS                                                               06/15/2020 17:46:08 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE SYS
+OBJECT MODULE PLACED IN ..\obj\sys.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\sys\sys.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\sys;..\USER;..\HAR
+                    -DWARE\LCD;..\HARDWARE\touch) DEBUG OBJECTEXTEND PRINT(.\sys.lst) TABS(2) OBJECT(..\obj\sys.obj)
+
+line level    source
+
+   1          //手机:17199916363（微信同号）
+   2          //技术支持QQ:423170204
+   3          //邮箱:Lcddiy@hotmail.com
+   4          /****************************************************************************************************
+   5          //=========================================接线说明================================================//
+   6          //  5V      接     DC5V
+   7          //  3v3     接     DC3.3V
+   8          //  GND     接     GND 
+   9          //  LCD_RST 接     P33
+  10          //  LCD_CS  接     P13
+  11          //  LCD_RS  接     P12
+  12          //  LCD_WR  接     P11
+  13          //  LCD_RD  接     P10
+  14          //  LCD_D0  接     P20
+  15          //  LCD_D1  接     P21
+  16          //  LCD_D2  接     P22
+  17          //  LCD_D3  接     P23
+  18          //  LCD_D4  接     P24
+  19          //  LCD_D5  接     P25
+  20          //  LCD_D6  接     P26
+  21          //  LCD_D7  接     P27
+  22          //  由于配套程序没有使用SD卡扩展功能，所以下引脚不需要接线
+  23          //  SD_SS、SD_DI、SD_DO、SD_SCK
+  24          //  由于本模块触摸测试需要外接XPT2046触摸采样芯片，所以本程序不进行触摸测试
+  25          **************************************************************************************************/         
+  26          
+  27          #include "sys.h"
+  28          void delay_ms(int count)  // /* X1ms */
+  29          {
+  30   1              int i,j;
+  31   1              for(i=0;i<count;i++)
+  32   1                      for(j=0;j<1000;j++);
+  33   1      }
+  34          
+  35          void delay_us(int count)  // /* X1us */
+  36          {
+  37   1              int i,j;
+  38   1              for(i=0;i<count;i++)
+  39   1                      for(j=0;j<1;j++);
+  40   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     76    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

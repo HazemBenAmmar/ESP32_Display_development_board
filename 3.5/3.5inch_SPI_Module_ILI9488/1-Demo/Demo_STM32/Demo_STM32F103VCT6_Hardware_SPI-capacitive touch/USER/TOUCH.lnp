@@ -1,0 +1,28 @@
+--cpu Cortex-M3
+".\main.o"
+".\stm32f10x_it.o"
+".\system_stm32f10x.o"
+".\led.o"
+".\key.o"
+".\lcd.o"
+".\myiic.o"
+".\24cxx.o"
+".\spi.o"
+".\flash.o"
+".\touch.o"
+".\touch_i2c.o"
+".\delay.o"
+".\sys.o"
+".\usart.o"
+".\core_cm3.o"
+".\startup_stm32f10x_hd.o"
+".\misc.o"
+".\stm32f10x_fsmc.o"
+".\stm32f10x_gpio.o"
+".\stm32f10x_rcc.o"
+".\stm32f10x_spi.o"
+".\stm32f10x_usart.o"
+--strict --scatter ".\TOUCH.sct"
+--summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\TOUCH.map" -o .\TOUCH.axf

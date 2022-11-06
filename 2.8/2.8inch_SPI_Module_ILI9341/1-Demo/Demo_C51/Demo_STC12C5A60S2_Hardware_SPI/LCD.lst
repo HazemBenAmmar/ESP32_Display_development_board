@@ -1,0 +1,427 @@
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE LCD
+OBJECT MODULE PLACED IN .\obj\LCD.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE LCD\LCD.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\font;.\LCD;.\sys;.\tou
+                    -ch;.\GUI;.\USER) DEBUG OBJECTEXTEND PRINT(.\LCD.lst) TABS(2) OBJECT(.\obj\LCD.obj)
+
+line level    source
+
+   1          //////////////////////////////////////////////////////////////////////////////////   
+   2          //本程序只供学习使用，未经作者许可，不得用于其它任何用途
+   3          //测试硬件：单片机STC89C52RC,晶振30M  单片机工作电压3.3V
+   4          //TFT液晶驱动 for C51
+   5          //淘宝网站：http://jczn.taobao.com
+   6          //All rights reserved
+   7          //********************************************************************************
+   8          //=========================================电源接线================================================//
+   9          //5V接DC 5V电源
+  10          //GND接地
+  11          //=======================================液晶屏数据线接线==========================================//
+  12          //本模块默认数据总线类型为SPI
+  13          //液晶屏模块            单片机
+  14          // SDI(MOSI)     接       P15        //SPI写信号
+  15          // SDO(MISO)     接       P16        //SPI读信号，如果不需要读功能，此管脚可不接
+  16          //=======================================液晶屏控制线接线==========================================//
+  17          //液晶屏模块            单片机
+  18          //  CS           接       P13       //片选控制信号
+  19          //  RESET        接       P33       //复位信号
+  20          //  DC           接       P12       //数据/命令选择控制信号
+  21          //  SCK          接       P17       //SPI时钟信号
+  22          //  LED          接       P32       //背光控制信号，如果使用STC89C52RC单片机或者不需要控制，接3.3V
+  23          //=========================================触摸屏接线=========================================//
+  24          //STC89C52RC单片机ROM太小，无法运行带触摸功能的程序，所以触摸屏不需要接线
+  25          //不使用触摸或者模块本身不带触摸，则可不连接
+  26          //触摸屏使用的数据总线类型为SPI
+  27          //触摸屏模块            单片机
+  28          //  T_CLK        接       P36       //触摸屏SPI时钟信号
+  29          //  T_CS         接       P37       //触摸屏片选控制信号
+  30          //  T_DIN        接       P34       //触摸屏SPI写信号
+  31          //  T_DO         接       P35       //触摸屏SPI读信号
+  32          //  T_IRQ        接       P40       //触摸屏响应检查信号，如单片机无P4组，请自行更改其他可用IO并修改代码定
+             -义
+  33          //**************************************************************************************************/ 
+  34          #include "sys.h"
+  35          #include "lcd.h"
+  36          
+  37          //LCD的画笔颜色和背景色    
+  38          u16 POINT_COLOR=0x0000; //画笔颜色
+  39          u16 BACK_COLOR=0xFFFF;  //背景色 
+  40          //管理LCD重要参数
+  41          //默认为竖屏
+  42          _lcd_dev lcddev;
+  43          
+  44          void  delay_ms_new(unsigned char ms)
+  45          {
+  46   1           unsigned int i;
+  47   1         do{
+  48   2              i = MAIN_Fosc / 14000;
+  49   2            while(--i)  ;   //14T per loop
+  50   2           }while(--ms);
+  51   1      }
+  52          
+  53          void  SPI_init(void)  
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 2   
+
+  54          {
+  55   1        SPCTL = (SSIG << 7)+(SPEN << 6)+(DORD << 5)+(MSTR << 4)+(CPOL << 3)+(CPHA << 2)+SPEED_4;
+  56   1      }
+  57          
+  58          /*****************************************************************************
+  59           * @name       :void SPI_WriteByte(u8 byte)
+  60           * @date       :2018-08-09 
+  61           * @function   :Write a byte of data using C51's Hardware SPI
+  62           * @parameters :d:Data to be written
+  63           * @retvalue   :None
+  64          ******************************************************************************/
+  65          void SPI_WriteByte(u8 byte)
+  66          {     
+  67   1            SPDAT = byte;   //发送一个字节
+  68   1            while((SPSTAT & SPIF)==0) ; //等待发送完成
+  69   1            SPSTAT = SPIF+WCOL;     //清0 SPIF和WCOL标志
+  70   1      }
+  71          
+  72          /*****************************************************************************
+  73           * @name       :void LCD_WR_REG(u8 data)
+  74           * @date       :2018-08-09 
+  75           * @function   :Write an 8-bit command to the LCD screen
+  76           * @parameters :data:Command value to be written
+  77           * @retvalue   :None
+  78          ******************************************************************************/
+  79          void LCD_WR_REG(u8 Reg)  
+  80          { 
+  81   1        LCD_CS=0;
+  82   1        LCD_RS=0;
+  83   1        SPI_WriteByte(Reg);
+  84   1        LCD_CS=1;
+  85   1      } 
+  86          
+  87          /*****************************************************************************
+  88           * @name       :void LCD_WR_DATA(u8 data)
+  89           * @date       :2018-08-09 
+  90           * @function   :Write an 8-bit data to the LCD screen
+  91           * @parameters :data:data value to be written
+  92           * @retvalue   :None
+  93          ******************************************************************************/
+  94          void LCD_WR_DATA(u8 Data)
+  95          {
+  96   1        LCD_CS=0;
+  97   1        LCD_RS=1;
+  98   1        SPI_WriteByte(Data);
+  99   1        LCD_CS=1;
+ 100   1      }
+ 101          
+ 102          /*****************************************************************************
+ 103           * @name       :void LCD_WR_DATA_16Bit(u16 Data)
+ 104           * @date       :2018-08-09 
+ 105           * @function   :Write an 16-bit command to the LCD screen
+ 106           * @parameters :Data:Data to be written
+ 107           * @retvalue   :None
+ 108          ******************************************************************************/  
+ 109          void LCD_WR_DATA_16Bit(u16 Data)
+ 110          {
+ 111   1        LCD_CS=0;
+ 112   1        LCD_RS=1;
+ 113   1        SPI_WriteByte(Data>>8);
+ 114   1        SPI_WriteByte(Data);
+ 115   1        LCD_CS=1;
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 3   
+
+ 116   1      }
+ 117          
+ 118          /*****************************************************************************
+ 119           * @name       :void LCD_WriteReg(u8 LCD_Reg, u16 LCD_RegValue)
+ 120           * @date       :2018-08-09 
+ 121           * @function   :Write data into registers
+ 122           * @parameters :LCD_Reg:Register address
+ 123                          LCD_RegValue:Data to be written
+ 124           * @retvalue   :None
+ 125          ******************************************************************************/
+ 126          void LCD_WriteReg(u8 LCD_Reg, u8 LCD_RegValue)
+ 127          {
+ 128   1        LCD_WR_REG(LCD_Reg);
+ 129   1        LCD_WR_DATA(LCD_RegValue);
+ 130   1      }
+ 131          
+ 132          /*****************************************************************************
+ 133           * @name       :void LCD_WriteRAM_Prepare(void)
+ 134           * @date       :2018-08-09 
+ 135           * @function   :Write GRAM
+ 136           * @parameters :None
+ 137           * @retvalue   :None
+ 138          ******************************************************************************/ 
+ 139          void LCD_WriteRAM_Prepare(void)
+ 140          {
+ 141   1        LCD_WR_REG(lcddev.wramcmd);   
+ 142   1      }
+ 143          
+ 144          /*****************************************************************************
+ 145           * @name       :void LCD_Clear(u16 Color)
+ 146           * @date       :2018-08-09 
+ 147           * @function   :Full screen filled LCD screen
+ 148           * @parameters :color:Filled color
+ 149           * @retvalue   :None
+ 150          ******************************************************************************/ 
+ 151          void LCD_Clear(u16 Color)
+ 152          {
+ 153   1        u16 i,j;
+ 154   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1); 
+ 155   1          for(i=0;i<lcddev.width;i++)
+ 156   1         {
+ 157   2          for (j=0;j<lcddev.height;j++)
+ 158   2            {
+ 159   3                 LCD_WR_DATA_16Bit(Color);
+ 160   3            }
+ 161   2      
+ 162   2          }
+ 163   1      }
+ 164          
+ 165          /*****************************************************************************
+ 166           * @name       :void LCD_DrawPoint(u16 x,u16 y)
+ 167           * @date       :2018-08-09 
+ 168           * @function   :Write a pixel data at a specified location
+ 169           * @parameters :x:the x coordinate of the pixel
+ 170                          y:the y coordinate of the pixel
+ 171           * @retvalue   :None
+ 172          ******************************************************************************/ 
+ 173          void LCD_DrawPoint(u16 x,u16 y)
+ 174          {
+ 175   1        LCD_SetWindows(x,y,x,y);//设置光标位置 
+ 176   1        LCD_WR_DATA_16Bit(POINT_COLOR);       
+ 177   1      }    
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 4   
+
+ 178          
+ 179          /*****************************************************************************
+ 180           * @name       :void LCD_Reset(void)
+ 181           * @date       :2018-08-09 
+ 182           * @function   :Reset LCD screen
+ 183           * @parameters :None
+ 184           * @retvalue   :None
+ 185          ******************************************************************************/ 
+ 186          void LCD_Reset(void)
+ 187          {
+ 188   1        LCD_RESET=1;
+ 189   1        delay_ms_new(50); 
+ 190   1        LCD_RESET=0;
+ 191   1        delay_ms_new(50);
+ 192   1        LCD_RESET=1;
+ 193   1        delay_ms_new(50);
+ 194   1      }
+ 195          
+ 196          /*****************************************************************************
+ 197           * @name       :void LCD_Init(void)
+ 198           * @date       :2018-08-09 
+ 199           * @function   :Initialization LCD screen
+ 200           * @parameters :None
+ 201           * @retvalue   :None
+ 202          ******************************************************************************/    
+ 203          void LCD_Init(void)
+ 204          {
+ 205   1        SPI_init(); //初始化硬件SPI
+ 206   1        LCD_Reset(); //初始化之前复位
+ 207   1      //*************2.8inch ILI9341初始化**********//  
+ 208   1        LCD_WR_REG(0xCF);  
+ 209   1        LCD_WR_DATA(0x00); 
+ 210   1        LCD_WR_DATA(0xC9); //C1 
+ 211   1        LCD_WR_DATA(0X30); 
+ 212   1        LCD_WR_REG(0xED);  
+ 213   1        LCD_WR_DATA(0x64); 
+ 214   1        LCD_WR_DATA(0x03); 
+ 215   1        LCD_WR_DATA(0X12); 
+ 216   1        LCD_WR_DATA(0X81); 
+ 217   1        LCD_WR_REG(0xE8);  
+ 218   1        LCD_WR_DATA(0x85); 
+ 219   1        LCD_WR_DATA(0x10); 
+ 220   1        LCD_WR_DATA(0x7A); 
+ 221   1        LCD_WR_REG(0xCB);  
+ 222   1        LCD_WR_DATA(0x39); 
+ 223   1        LCD_WR_DATA(0x2C); 
+ 224   1        LCD_WR_DATA(0x00); 
+ 225   1        LCD_WR_DATA(0x34); 
+ 226   1        LCD_WR_DATA(0x02); 
+ 227   1        LCD_WR_REG(0xF7);  
+ 228   1        LCD_WR_DATA(0x20); 
+ 229   1        LCD_WR_REG(0xEA);  
+ 230   1        LCD_WR_DATA(0x00); 
+ 231   1        LCD_WR_DATA(0x00); 
+ 232   1        LCD_WR_REG(0xC0);    //Power control 
+ 233   1        LCD_WR_DATA(0x1B);   //VRH[5:0] 
+ 234   1        LCD_WR_REG(0xC1);    //Power control 
+ 235   1        LCD_WR_DATA(0x00);   //SAP[2:0];BT[3:0] 01 
+ 236   1        LCD_WR_REG(0xC5);    //VCM control 
+ 237   1        LCD_WR_DATA(0x30);   //3F
+ 238   1        LCD_WR_DATA(0x30);   //3C
+ 239   1        LCD_WR_REG(0xC7);    //VCM control2 
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 5   
+
+ 240   1        LCD_WR_DATA(0XB7); 
+ 241   1        LCD_WR_REG(0x36);    // Memory Access Control 
+ 242   1        LCD_WR_DATA(0x08); 
+ 243   1        LCD_WR_REG(0x3A);   
+ 244   1        LCD_WR_DATA(0x55); 
+ 245   1        LCD_WR_REG(0xB1);   
+ 246   1        LCD_WR_DATA(0x00);   
+ 247   1        LCD_WR_DATA(0x1A); 
+ 248   1        LCD_WR_REG(0xB6);    // Display Function Control 
+ 249   1        LCD_WR_DATA(0x0A); 
+ 250   1        LCD_WR_DATA(0xA2); 
+ 251   1        LCD_WR_REG(0xF2);    // 3Gamma Function Disable 
+ 252   1        LCD_WR_DATA(0x00); 
+ 253   1        LCD_WR_REG(0x26);    //Gamma curve selected 
+ 254   1        LCD_WR_DATA(0x01); 
+ 255   1        LCD_WR_REG(0xE0);    //Set Gamma 
+ 256   1        LCD_WR_DATA(0x0F); 
+ 257   1        LCD_WR_DATA(0x2A); 
+ 258   1        LCD_WR_DATA(0x28); 
+ 259   1        LCD_WR_DATA(0x08); 
+ 260   1        LCD_WR_DATA(0x0E); 
+ 261   1        LCD_WR_DATA(0x08); 
+ 262   1        LCD_WR_DATA(0x54); 
+ 263   1        LCD_WR_DATA(0XA9); 
+ 264   1        LCD_WR_DATA(0x43); 
+ 265   1        LCD_WR_DATA(0x0A); 
+ 266   1        LCD_WR_DATA(0x0F); 
+ 267   1        LCD_WR_DATA(0x00); 
+ 268   1        LCD_WR_DATA(0x00); 
+ 269   1        LCD_WR_DATA(0x00); 
+ 270   1        LCD_WR_DATA(0x00);     
+ 271   1        LCD_WR_REG(0XE1);    //Set Gamma 
+ 272   1        LCD_WR_DATA(0x00); 
+ 273   1        LCD_WR_DATA(0x15); 
+ 274   1        LCD_WR_DATA(0x17); 
+ 275   1        LCD_WR_DATA(0x07); 
+ 276   1        LCD_WR_DATA(0x11); 
+ 277   1        LCD_WR_DATA(0x06); 
+ 278   1        LCD_WR_DATA(0x2B); 
+ 279   1        LCD_WR_DATA(0x56); 
+ 280   1        LCD_WR_DATA(0x3C); 
+ 281   1        LCD_WR_DATA(0x05); 
+ 282   1        LCD_WR_DATA(0x10); 
+ 283   1        LCD_WR_DATA(0x0F); 
+ 284   1        LCD_WR_DATA(0x3F); 
+ 285   1        LCD_WR_DATA(0x3F); 
+ 286   1        LCD_WR_DATA(0x0F); 
+ 287   1        LCD_WR_REG(0x2B); 
+ 288   1        LCD_WR_DATA(0x00);
+ 289   1        LCD_WR_DATA(0x00);
+ 290   1        LCD_WR_DATA(0x01);
+ 291   1        LCD_WR_DATA(0x3f);
+ 292   1        LCD_WR_REG(0x2A); 
+ 293   1        LCD_WR_DATA(0x00);
+ 294   1        LCD_WR_DATA(0x00);
+ 295   1        LCD_WR_DATA(0x00);
+ 296   1        LCD_WR_DATA(0xef);   
+ 297   1        LCD_WR_REG(0x11); //Exit Sleep
+ 298   1        delay_ms(120);
+ 299   1        LCD_WR_REG(0x29); //display on    
+ 300   1      
+ 301   1        //设置LCD属性参数
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 6   
+
+ 302   1        LCD_direction(USE_HORIZONTAL);//设置LCD显示方向 
+ 303   1        LCD_BL=1;//点亮背光  
+ 304   1      }
+ 305           
+ 306          /*****************************************************************************
+ 307           * @name       :void LCD_SetWindows(u16 xStar, u16 yStar,u16 xEnd,u16 yEnd)
+ 308           * @date       :2018-08-09 
+ 309           * @function   :Setting LCD display window
+ 310           * @parameters :xStar:the bebinning x coordinate of the LCD display window
+ 311                          yStar:the bebinning y coordinate of the LCD display window
+ 312                          xEnd:the endning x coordinate of the LCD display window
+ 313                          yEnd:the endning y coordinate of the LCD display window
+ 314           * @retvalue   :None
+ 315          ******************************************************************************/ 
+ 316          void LCD_SetWindows(u16 xStar, u16 yStar,u16 xEnd,u16 yEnd)
+ 317          { 
+ 318   1        LCD_WR_REG(lcddev.setxcmd); 
+ 319   1        LCD_WR_DATA(xStar>>8);
+ 320   1        LCD_WR_DATA(0x00FF&xStar);    
+ 321   1        LCD_WR_DATA(xEnd>>8);
+ 322   1        LCD_WR_DATA(0x00FF&xEnd);
+ 323   1      
+ 324   1        LCD_WR_REG(lcddev.setycmd); 
+ 325   1        LCD_WR_DATA(yStar>>8);
+ 326   1        LCD_WR_DATA(0x00FF&yStar);    
+ 327   1        LCD_WR_DATA(yEnd>>8);
+ 328   1        LCD_WR_DATA(0x00FF&yEnd); 
+ 329   1      
+ 330   1        LCD_WriteRAM_Prepare(); //开始写入GRAM        
+ 331   1      }   
+ 332          
+ 333          /*****************************************************************************
+ 334           * @name       :void LCD_SetCursor(u16 Xpos, u16 Ypos)
+ 335           * @date       :2018-08-09 
+ 336           * @function   :Set coordinate value
+ 337           * @parameters :Xpos:the  x coordinate of the pixel
+ 338                          Ypos:the  y coordinate of the pixel
+ 339           * @retvalue   :None
+ 340          ******************************************************************************/ 
+ 341          void LCD_SetCursor(u16 Xpos, u16 Ypos)
+ 342          {               
+ 343   1        LCD_SetWindows(Xpos,Ypos,Xpos,Ypos);  
+ 344   1      } 
+ 345          
+ 346          /*****************************************************************************
+ 347           * @name       :void LCD_direction(u8 direction)
+ 348           * @date       :2018-08-09 
+ 349           * @function   :Setting the display direction of LCD screen
+ 350           * @parameters :direction:0-0 degree
+ 351                                    1-90 degree
+ 352                                    2-180 degree
+ 353                                    3-270 degree
+ 354           * @retvalue   :None
+ 355          ******************************************************************************/ 
+ 356          void LCD_direction(u8 direction)
+ 357          { 
+ 358   1            lcddev.setxcmd=0x2A;
+ 359   1            lcddev.setycmd=0x2B;
+ 360   1            lcddev.wramcmd=0x2C;
+ 361   1        switch(direction){      
+ 362   2          case 0:                 
+ 363   2            lcddev.width=LCD_W;
+C51 COMPILER V9.00   LCD                                                                   04/10/2022 16:56:53 PAGE 7   
+
+ 364   2            lcddev.height=LCD_H;    
+ 365   2            LCD_WriteReg(0x36,(1<<3)|(0<<6)|(0<<7));//BGR==1,MY==0,MX==0,MV==0
+ 366   2          break;
+ 367   2          case 1:
+ 368   2            lcddev.width=LCD_H;
+ 369   2            lcddev.height=LCD_W;
+ 370   2            LCD_WriteReg(0x36,(1<<3)|(0<<7)|(1<<6)|(1<<5));//BGR==1,MY==1,MX==0,MV==1
+ 371   2          break;
+ 372   2          case 2:                 
+ 373   2            lcddev.width=LCD_W;
+ 374   2            lcddev.height=LCD_H;  
+ 375   2            LCD_WriteReg(0x36,(1<<3)|(1<<6)|(1<<7));//BGR==1,MY==0,MX==0,MV==0
+ 376   2          break;
+ 377   2          case 3:
+ 378   2            lcddev.width=LCD_H;
+ 379   2            lcddev.height=LCD_W;
+ 380   2            LCD_WriteReg(0x36,(1<<3)|(1<<7)|(1<<5));//BGR==1,MY==1,MX==0,MV==1
+ 381   2          break;  
+ 382   2          default:break;
+ 383   2        }   
+ 384   1        
+ 385   1      }  
+ 386          
+ 387          
+ 388          
+ 389          
+ 390          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    951    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     17      12
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

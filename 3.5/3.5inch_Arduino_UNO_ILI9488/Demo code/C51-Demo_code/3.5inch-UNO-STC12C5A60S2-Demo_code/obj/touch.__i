@@ -1,0 +1,1 @@
+"..\HARDWARE\touch\touch.c" LARGE OPTIMIZE (8,SPEED) BROWSE INCDIR(..\sys;..\USER;..\HARDWARE\LCD;..\HARDWARE\touch) DEBUG OBJECTEXTEND PRINT(.\touch.lst) TABS (2) OBJECT(..\obj\touch.obj)

@@ -1,0 +1,542 @@
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 1   
+
+
+C51 COMPILER V9.53.0.0, COMPILATION OF MODULE LCD
+OBJECT MODULE PLACED IN ..\obj\LCD.obj
+COMPILER INVOKED BY: d:\Keil_v5\C51\BIN\C51.EXE ..\HARDWARE\LCD\LCD.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(..\sys;..\US
+                    -ER;..\HARDWARE\LCD;..\HARDWARE\touch) DEBUG OBJECTEXTEND PRINT(.\LCD.lst) TABS(2) OBJECT(..\obj\LCD.obj)
+
+line level    source
+
+   1          //手机:17199916363（微信同号）
+   2          //技术支持QQ:423170204
+   3          //邮箱:Lcddiy@hotmail.com
+   4          /****************************************************************************************************
+   5          //=========================================接线说明================================================//
+   6          //  5V      接     DC5V
+   7          //  3v3     接     DC3.3V
+   8          //  GND     接     GND 
+   9          //  LCD_RST 接     P33
+  10          //  LCD_CS  接     P13
+  11          //  LCD_RS  接     P12
+  12          //  LCD_WR  接     P11
+  13          //  LCD_RD  接     P10
+  14          //  LCD_D0  接     P20
+  15          //  LCD_D1  接     P21
+  16          //  LCD_D2  接     P22
+  17          //  LCD_D3  接     P23
+  18          //  LCD_D4  接     P24
+  19          //  LCD_D5  接     P25
+  20          //  LCD_D6  接     P26
+  21          //  LCD_D7  接     P27
+  22          //  由于配套程序没有使用SD卡扩展功能，所以下引脚不需要接线
+  23          //  SD_SS、SD_DI、SD_DO、SD_SCK
+  24          //  由于本模块触摸测试需要外接XPT2046触摸采样芯片，所以本程序不进行触摸测试
+  25          **************************************************************************************************/       
+  26          #include "sys.h"
+  27          #include "lcd.h"
+  28          
+  29          //LCD的画笔颜色和背景色    
+  30          u16 POINT_COLOR=0x0000; //画笔颜色
+  31          u16 BACK_COLOR=0xFFFF;  //背景色 
+  32          //管理LCD重要参数
+  33          //默认为竖屏
+  34          _lcd_dev lcddev;
+  35          
+  36          void LCD_write(u8 HVAL,u8 LVAL)
+  37          {
+  38   1        LCD_CS = 0;
+  39   1        LCD_WR = 0;
+  40   1        LCD_DataPortH = HVAL;
+  41   1        LCD_DataPortL = LVAL;
+  42   1        LCD_WR = 1;
+  43   1        LCD_CS = 1;
+  44   1      }
+  45          
+  46          u16 LCD_read(void)
+  47          {
+  48   1        u16 d;
+  49   1        LCD_CS = 0;
+  50   1        LCD_RD = 0;
+  51   1        delay_us(1); //delay 1 us
+  52   1      #if LCD_USE8BIT_MODEL
+  53   1        d = LCD_DataPortH;
+  54   1      #else
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 2   
+
+                d = LCD_DataPortH;
+                d = (d<<8)|LCD_DataPortL;
+              #endif
+  58   1        LCD_RD = 1;
+  59   1        LCD_CS = 1;
+  60   1        return d;
+  61   1      }
+  62          /*****************************************************************************
+  63           * @name       :void LCD_WR_REG(u16 Reg)  
+  64           * @date       :2018-08-09 
+  65           * @function   :Write an 16-bit command to the LCD screen
+  66           * @parameters :data:Command value to be written
+  67           * @retvalue   :None
+  68          ******************************************************************************/
+  69          void LCD_WR_REG(u16 Reg)   
+  70          { 
+  71   1        LCD_RS=0;
+  72   1        #if LCD_USE8BIT_MODEL
+  73   1        LCD_write(Reg&0xFF,0);
+  74   1        #else
+                LCD_write((Reg>>8)&0xFF,Reg&0xFF);
+                #endif
+  77   1      } 
+  78          
+  79          /*****************************************************************************
+  80           * @name       :void LCD_WR_DATA(u16 Data)
+  81           * @date       :2018-08-09 
+  82           * @function   :Write an 16-bit data to the LCD screen
+  83           * @parameters :data:data value to be written
+  84           * @retvalue   :None
+  85          ******************************************************************************/
+  86          void LCD_WR_DATA(u16 Data)
+  87          {
+  88   1        LCD_RS=1;
+  89   1        #if LCD_USE8BIT_MODEL
+  90   1        LCD_write(Data&0xFF,0);
+  91   1        #else
+                LCD_write((Data>>8)&0xFF,Data&0xFF);
+                #endif
+  94   1      }
+  95          
+  96          /*****************************************************************************
+  97           * @name       :u16 LCD_RD_DATA(void)
+  98           * @date       :2018-11-13 
+  99           * @function   :Read an 16-bit value from the LCD screen
+ 100           * @parameters :None
+ 101           * @retvalue   :read value
+ 102          ******************************************************************************/
+ 103          u16 LCD_RD_DATA(void)
+ 104          {
+ 105   1      
+ 106   1        LCD_RS=1;
+ 107   1        return LCD_read();
+ 108   1      }
+ 109          
+ 110          /*****************************************************************************
+ 111           * @name       :void LCD_WR_DATA_16Bit(u16 Data)
+ 112           * @date       :2018-08-09 
+ 113           * @function   :Write an 16-bit command to the LCD screen
+ 114           * @parameters :Data:Data to be written
+ 115           * @retvalue   :None
+ 116          ******************************************************************************/  
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 3   
+
+ 117          void LCD_WR_DATA_16Bit(u16 Data)
+ 118          {
+ 119   1        LCD_RS=1;
+ 120   1        #if LCD_USE8BIT_MODEL
+ 121   1        LCD_write((Data>>8)&0xFF,0);
+ 122   1        LCD_write(Data&0xFF,0);
+ 123   1        #else
+                LCD_write((Data>>8)&0xFF,Data&0xFF);
+                #endif
+ 126   1      }
+ 127          
+ 128          u16 Color_To_565(u8 r, u8 g, u8 b)
+ 129          {
+ 130   1        return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3);
+ 131   1      }
+ 132          
+ 133          /*****************************************************************************
+ 134           * @name       :u16 Lcd_ReadData_16Bit(void)
+ 135           * @date       :2018-11-13 
+ 136           * @function   :Read an 16-bit value from the LCD screen
+ 137           * @parameters :None
+ 138           * @retvalue   :read value
+ 139          ******************************************************************************/ 
+ 140          u16 Lcd_RD_DATA_16Bit(void)
+ 141          {
+ 142   1        u16 r,g,b;
+ 143   1        LCD_RS = 1;
+ 144   1        LCD_CS = 0;
+ 145   1        
+ 146   1        //dummy Data
+ 147   1        LCD_RD = 0;
+ 148   1        delay_us(1); //delay 1us
+ 149   1      #if LCD_USE8BIT_MODEL
+ 150   1        r = LCD_DataPortH;
+ 151   1      #else
+                r = LCD_DataPortH;
+                r = (d<<8)|LCD_DataPortL;
+              #endif
+ 155   1        LCD_RD = 1;
+ 156   1      
+ 157   1        //8bit:red Data
+ 158   1        //16bit:red and green Data
+ 159   1        LCD_RD = 0;
+ 160   1        delay_us(1); //delay 1us
+ 161   1      #if LCD_USE8BIT_MODEL
+ 162   1        r = LCD_DataPortH;
+ 163   1      #else
+                r = LCD_DataPortH;
+                r = (d<<8)|LCD_DataPortL;
+              #endif
+ 167   1        LCD_RD = 1;
+ 168   1        
+ 169   1        //8bit:green Data
+ 170   1        //16bit:blue Data
+ 171   1        LCD_RD = 0;
+ 172   1        delay_us(1); //delay 1us
+ 173   1      #if LCD_USE8BIT_MODEL
+ 174   1        g = LCD_DataPortH;
+ 175   1      #else
+                g = LCD_DataPortH;
+                g = (d<<8)|LCD_DataPortL;
+              #endif
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 4   
+
+ 179   1        LCD_RD = 1;
+ 180   1        
+ 181   1      #if LCD_USE8BIT_MODEL 
+ 182   1        LCD_RD = 0;
+ 183   1        delay_us(1); //delay 1us
+ 184   1        b = LCD_DataPortH;
+ 185   1        LCD_RD = 1;
+ 186   1        #else
+                b = g>>8;
+                g = r&0xFF;
+                r = r>>8;
+                #endif
+ 191   1        LCD_CS = 1;
+ 192   1        return Color_To_565(r, g, b);
+ 193   1      }
+ 194          
+ 195          /*****************************************************************************
+ 196           * @name       :void LCD_WriteReg(u16 LCD_Reg, u16 LCD_RegValue)
+ 197           * @date       :2018-08-09 
+ 198           * @function   :Write data into registers
+ 199           * @parameters :LCD_Reg:Register address
+ 200                          LCD_RegValue:Data to be written
+ 201           * @retvalue   :None
+ 202          ******************************************************************************/
+ 203          void LCD_WriteReg(u16 LCD_Reg, u16 LCD_RegValue)
+ 204          {
+ 205   1        LCD_WR_REG(LCD_Reg);
+ 206   1        LCD_WR_DATA(LCD_RegValue);
+ 207   1      }
+ 208          
+ 209          /*****************************************************************************
+ 210           * @name       :u16 LCD_ReadReg(u16 LCD_Reg)
+ 211           * @date       :2018-11-13 
+ 212           * @function   :read value from specially registers
+ 213           * @parameters :LCD_Reg:Register address
+ 214           * @retvalue   :read value
+ 215          ******************************************************************************/
+ 216          void LCD_ReadReg(u16 LCD_Reg,u8 *Rval,int n)
+ 217          {
+ 218   1        LCD_WR_REG(LCD_Reg);
+ 219   1        LCD_DataPortH = 0xFF; //拉高P2
+ 220   1        LCD_DataPortL = 0xFF; //拉高P0
+ 221   1        while(n--)
+ 222   1        {   
+ 223   2          *(Rval++) = LCD_RD_DATA();
+ 224   2        }
+ 225   1        LCD_DataPortH = 0xFF; //拉高P2
+ 226   1        LCD_DataPortL = 0xFF; //拉高P0
+ 227   1      }
+ 228          
+ 229          /*****************************************************************************
+ 230           * @name       :void LCD_WriteRAM_Prepare(void)
+ 231           * @date       :2018-08-09 
+ 232           * @function   :Write GRAM
+ 233           * @parameters :None
+ 234           * @retvalue   :None
+ 235          ******************************************************************************/ 
+ 236          void LCD_WriteRAM_Prepare(void)
+ 237          {
+ 238   1        LCD_WR_REG(lcddev.wramcmd);   
+ 239   1      }
+ 240          
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 5   
+
+ 241          /*****************************************************************************
+ 242           * @name       :void LCD_ReadRAM_Prepare(void)
+ 243           * @date       :2018-11-13 
+ 244           * @function   :Read GRAM
+ 245           * @parameters :None
+ 246           * @retvalue   :None
+ 247          ******************************************************************************/  
+ 248          void LCD_ReadRAM_Prepare(void)
+ 249          {
+ 250   1        LCD_WR_REG(lcddev.rramcmd);
+ 251   1      }
+ 252          
+ 253          /*****************************************************************************
+ 254           * @name       :void LCD_Clear(u16 Color)
+ 255           * @date       :2018-08-09 
+ 256           * @function   :Full screen filled LCD screen
+ 257           * @parameters :color:Filled color
+ 258           * @retvalue   :None
+ 259          ******************************************************************************/ 
+ 260          void LCD_Clear(u16 Color)
+ 261          {
+ 262   1        u16 i,j;
+ 263   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1); 
+ 264   1          for(i=0;i<lcddev.width;i++)
+ 265   1         {
+ 266   2          for (j=0;j<lcddev.height;j++)
+ 267   2           {
+ 268   3                 LCD_WR_DATA_16Bit(Color);
+ 269   3           }
+ 270   2      
+ 271   2          }
+ 272   1      }
+ 273          
+ 274          /*****************************************************************************
+ 275           * @name       :void LCD_DrawPoint(u16 x,u16 y)
+ 276           * @date       :2018-08-09 
+ 277           * @function   :Write a pixel data at a specified location
+ 278           * @parameters :x:the x coordinate of the pixel
+ 279                          y:the y coordinate of the pixel
+ 280           * @retvalue   :None
+ 281          ******************************************************************************/ 
+ 282          void LCD_DrawPoint(u16 x,u16 y)
+ 283          {
+ 284   1        LCD_SetWindows(x,y,x,y);//设置光标位置 
+ 285   1        LCD_WR_DATA_16Bit(POINT_COLOR);       
+ 286   1      }    
+ 287          
+ 288          
+ 289          /*****************************************************************************
+ 290           * @name       :u16 LCD_ReadPoint(u16 x,u16 y)
+ 291           * @date       :2018-11-13 
+ 292           * @function   :Read a pixel color value at a specified location
+ 293           * @parameters :x:the x coordinate of the pixel
+ 294                          y:the y coordinate of the pixel
+ 295           * @retvalue   :the read color value
+ 296          ******************************************************************************/ 
+ 297          u16 LCD_ReadPoint(u16 x,u16 y)
+ 298          {
+ 299   1        u16 color;
+ 300   1        if(x>=lcddev.width||y>=lcddev.height)
+ 301   1        {
+ 302   2          return 0; //超过了范围,直接返回 
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 6   
+
+ 303   2        }
+ 304   1        LCD_SetCursor(x,y);//设置光标位置 
+ 305   1        LCD_ReadRAM_Prepare();
+ 306   1        LCD_DataPortH = 0xFF; //拉高P2
+ 307   1        LCD_DataPortL = 0xFF; //拉高P0
+ 308   1        
+ 309   1        color = Lcd_RD_DATA_16Bit();
+ 310   1        
+ 311   1        LCD_DataPortH = 0xFF; //拉高P2
+ 312   1        LCD_DataPortL = 0xFF; //拉高P0
+ 313   1        return color;
+ 314   1      }
+ 315          
+ 316          /*****************************************************************************
+ 317           * @name       :void LCD_Set_GPIO(void)
+ 318           * @date       :2018-11-13 
+ 319           * @function   :Set the gpio to push-pull mode
+ 320           * @parameters :None
+ 321           * @retvalue   :None
+ 322          ******************************************************************************/ 
+ 323          void LCD_Set_GPIO(void)
+ 324          {
+ 325   1        //P0口设置成推挽输出
+ 326   1        p0M0=0xff;
+ 327   1        p0M1=0x00;
+ 328   1      
+ 329   1        //P1口设置成推挽输出
+ 330   1        p1M0=0xff;
+ 331   1        p1M1=0x00;
+ 332   1      
+ 333   1        //P2口设置成推挽输出
+ 334   1        P2M0=0xff;
+ 335   1        P2M1=0x00;
+ 336   1      }
+ 337          
+ 338          /*****************************************************************************
+ 339           * @name       :void LCD_Reset(void)
+ 340           * @date       :2018-08-09 
+ 341           * @function   :Reset LCD screen
+ 342           * @parameters :None
+ 343           * @retvalue   :None
+ 344          ******************************************************************************/ 
+ 345          void LCD_Reset(void)
+ 346          {
+ 347   1        delay_ms(50); 
+ 348   1        LCD_RESET=0;
+ 349   1        delay_ms(50);
+ 350   1        LCD_RESET=1;
+ 351   1        delay_ms(50);
+ 352   1      }
+ 353          
+ 354          /*****************************************************************************
+ 355           * @name       :void LCD_Init(void)
+ 356           * @date       :2018-08-09 
+ 357           * @function   :Initialization LCD screen
+ 358           * @parameters :None
+ 359           * @retvalue   :None
+ 360          ******************************************************************************/    
+ 361          void LCD_Init(void)
+ 362          {
+ 363   1        LCD_Set_GPIO();
+ 364   1        LCD_Reset(); //初始化之前复位
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 7   
+
+ 365   1      //************* ILI9488初始化**********// 
+ 366   1         LCD_WR_REG(0x01);
+ 367   1        delay_ms(50);
+ 368   1        LCD_WR_REG(0x28);
+ 369   1        LCD_WR_REG(0xC0);
+ 370   1        LCD_WR_DATA(0x10);
+ 371   1        LCD_WR_DATA(0x10);
+ 372   1        LCD_WR_REG(0xC1);
+ 373   1        LCD_WR_DATA(0x41);
+ 374   1        LCD_WR_REG(0xC5);  
+ 375   1        LCD_WR_DATA(0x00); 
+ 376   1        LCD_WR_DATA(0x22);
+ 377   1        LCD_WR_DATA(0x80);
+ 378   1        LCD_WR_DATA(0x40);
+ 379   1        LCD_WR_REG(0x36);
+ 380   1        LCD_WR_DATA(0x08);
+ 381   1        LCD_WR_REG(0xB0);
+ 382   1        LCD_WR_DATA(0x00);
+ 383   1        LCD_WR_REG(0xB1);
+ 384   1        LCD_WR_DATA(0xB0);
+ 385   1        LCD_WR_DATA(0x11);
+ 386   1        LCD_WR_REG(0xB4);
+ 387   1        LCD_WR_DATA(0x02);
+ 388   1        LCD_WR_REG(0xB6);
+ 389   1        LCD_WR_DATA(0x02);
+ 390   1        LCD_WR_DATA(0x02);
+ 391   1        LCD_WR_DATA(0x3B);
+ 392   1        LCD_WR_REG(0xB7);
+ 393   1        LCD_WR_DATA(0xC6);
+ 394   1        LCD_WR_REG(0x3A);
+ 395   1        LCD_WR_DATA(0x55);
+ 396   1        LCD_WR_REG(0xF7);
+ 397   1        LCD_WR_DATA(0xA9); 
+ 398   1        LCD_WR_DATA(0x51);
+ 399   1        LCD_WR_DATA(0x2C);
+ 400   1        LCD_WR_DATA(0x82);
+ 401   1        LCD_WR_REG(0x11);
+ 402   1        delay_ms(150);
+ 403   1        LCD_WR_REG(0x29);
+ 404   1        
+ 405   1        LCD_direction(USE_HORIZONTAL);//设置LCD显示方向 
+ 406   1        LCD_Clear(WHITE);//清全屏白色
+ 407   1      }
+ 408           
+ 409          /*****************************************************************************
+ 410           * @name       :void LCD_SetWindows(u16 xStar, u16 yStar,u16 xEnd,u16 yEnd)
+ 411           * @date       :2018-08-09 
+ 412           * @function   :Setting LCD display window
+ 413           * @parameters :xStar:the bebinning x coordinate of the LCD display window
+ 414                          yStar:the bebinning y coordinate of the LCD display window
+ 415                          xEnd:the endning x coordinate of the LCD display window
+ 416                          yEnd:the endning y coordinate of the LCD display window
+ 417           * @retvalue   :None
+ 418          ******************************************************************************/ 
+ 419          void LCD_SetWindows(u16 xStar, u16 yStar,u16 xEnd,u16 yEnd)
+ 420          { 
+ 421   1          LCD_WR_REG(lcddev.setxcmd); 
+ 422   1        LCD_WR_DATA(xStar>>8);
+ 423   1        LCD_WR_DATA(0x00FF&xStar);    
+ 424   1        LCD_WR_DATA(xEnd>>8);
+ 425   1        LCD_WR_DATA(0x00FF&xEnd);
+ 426   1      
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 8   
+
+ 427   1        LCD_WR_REG(lcddev.setycmd); 
+ 428   1        LCD_WR_DATA(yStar>>8);
+ 429   1        LCD_WR_DATA(0x00FF&yStar);    
+ 430   1        LCD_WR_DATA(yEnd>>8);
+ 431   1        LCD_WR_DATA(0x00FF&yEnd);
+ 432   1        LCD_WriteRAM_Prepare(); //开始写入GRAM      
+ 433   1      }   
+ 434          
+ 435          /*****************************************************************************
+ 436           * @name       :void LCD_SetCursor(u16 Xpos, u16 Ypos)
+ 437           * @date       :2018-08-09 
+ 438           * @function   :Set coordinate value
+ 439           * @parameters :Xpos:the  x coordinate of the pixel
+ 440                          Ypos:the  y coordinate of the pixel
+ 441           * @retvalue   :None
+ 442          ******************************************************************************/ 
+ 443          void LCD_SetCursor(u16 Xpos, u16 Ypos)
+ 444          {               
+ 445   1        LCD_SetWindows(Xpos,Ypos,Xpos,Ypos);  
+ 446   1      } 
+ 447          
+ 448          /*****************************************************************************
+ 449           * @name       :void LCD_direction(u8 direction)
+ 450           * @date       :2018-08-09 
+ 451           * @function   :Setting the display direction of LCD screen
+ 452           * @parameters :direction:0-0 degree
+ 453                                    1-90 degree
+ 454                                    2-180 degree
+ 455                                    3-270 degree
+ 456           * @retvalue   :None
+ 457          ******************************************************************************/ 
+ 458          void LCD_direction(u8 direction)
+ 459          { 
+ 460   1        lcddev.setxcmd=0x2A;
+ 461   1        lcddev.setycmd=0x2B;
+ 462   1        lcddev.wramcmd=0x2C;
+ 463   1        lcddev.rramcmd=0x2E;
+ 464   1        lcddev.dir=direction%4;
+ 465   1        switch(lcddev.dir){     
+ 466   2          case 0:                 
+ 467   2            lcddev.width=LCD_W;
+ 468   2            lcddev.height=LCD_H;    
+ 469   2            LCD_WriteReg(0x36,(1<<3)|(1<<6));
+ 470   2          break;
+ 471   2          case 1:
+ 472   2            lcddev.width=LCD_H;
+ 473   2            lcddev.height=LCD_W;
+ 474   2            LCD_WriteReg(0x36,(1<<3)|(1<<5));
+ 475   2          break;
+ 476   2          case 2:                 
+ 477   2            lcddev.width=LCD_W;
+ 478   2            lcddev.height=LCD_H;  
+ 479   2            LCD_WriteReg(0x36,(1<<3)|(1<<7));
+ 480   2          break;
+ 481   2          case 3:
+ 482   2            lcddev.width=LCD_H;
+ 483   2            lcddev.height=LCD_W;
+ 484   2            LCD_WriteReg(0x36,(1<<3)|(1<<5));
+ 485   2          break;  
+ 486   2          default:break;
+ 487   2        }   
+ 488   1      }  
+C51 COMPILER V9.53.0.0   LCD                                                               06/15/2020 18:04:13 PAGE 9   
+
+ 489          
+ 490          /*****************************************************************************
+ 491           * @name       :u16 LCD_Read_ID(void)
+ 492           * @date       :2018-11-13 
+ 493           * @function   :Read ID
+ 494           * @parameters :None
+ 495           * @retvalue   :ID value
+ 496          ******************************************************************************/ 
+ 497          u16 LCD_Read_ID(void)
+ 498          {
+ 499   1        u8 val[4] = {0};
+ 500   1        LCD_ReadReg(0xD3,val,4);
+ 501   1        return (val[2]<<8)|val[3];
+ 502   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1112    ----
+   CONSTANT SIZE    =      4    ----
+   XDATA SIZE       =     19      31
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
