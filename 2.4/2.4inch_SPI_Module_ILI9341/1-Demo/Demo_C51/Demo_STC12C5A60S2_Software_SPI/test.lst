@@ -1,0 +1,353 @@
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE TEST
+OBJECT MODULE PLACED IN .\obj\test.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE USER\test.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\font;.\LCD;.\sys;.\t
+                    -ouch;.\GUI;.\USER) DEBUG OBJECTEXTEND PRINT(.\test.lst) TABS(2) OBJECT(.\obj\test.obj)
+
+line level    source
+
+   1          //////////////////////////////////////////////////////////////////////////////////   
+   2          //本程序只供学习使用，未经作者许可，不得用于其它任何用途
+   3          //测试硬件：单片机STC89C52RC,晶振30M  单片机工作电压3.3V
+   4          //TFT液晶驱动 for C51
+   5          //淘宝网站：http://jczn.taobao.com
+   6          //All rights reserved
+   7          //********************************************************************************
+   8          //=========================================电源接线================================================//
+   9          //5V接DC 5V电源
+  10          //GND接地
+  11          //=======================================液晶屏数据线接线==========================================//
+  12          //本模块默认数据总线类型为SPI
+  13          //液晶屏模块            单片机
+  14          // SDI(MOSI)     接       P15        //SPI写信号
+  15          // SDO(MISO)     接       P16        //SPI读信号，如果不需要读功能，此管脚可不接
+  16          //=======================================液晶屏控制线接线==========================================//
+  17          //液晶屏模块            单片机
+  18          //  CS           接       P13       //片选控制信号
+  19          //  RESET        接       P33       //复位信号
+  20          //  DC           接       P12       //数据/命令选择控制信号
+  21          //  SCK          接       P17       //SPI时钟信号
+  22          //  LED          接       P32       //背光控制信号，如果使用STC89C52RC单片机或者不需要控制，接3.3V
+  23          //=========================================触摸屏接线=========================================//
+  24          //STC89C52RC单片机ROM太小，无法运行带触摸功能的程序，所以触摸屏不需要接线
+  25          //不使用触摸或者模块本身不带触摸，则可不连接
+  26          //触摸屏使用的数据总线类型为SPI
+  27          //触摸屏模块            单片机
+  28          //  T_CLK        接       P36       //触摸屏SPI时钟信号
+  29          //  T_CS         接       P37       //触摸屏片选控制信号
+  30          //  T_DIN        接       P34       //触摸屏SPI写信号
+  31          //  T_DO         接       P35       //触摸屏SPI读信号
+  32          //  T_IRQ        接       P40       //触摸屏响应检查信号，如单片机无P4组，请自行更改其他可用IO并修改代码定
+             -义
+  33          //**************************************************************************************************/ 
+  34          #include "lcd.h"
+  35          #include "string.h"
+  36          #include "sys.h"
+  37          #include "gui.h"
+  38          #include "test.h"
+  39          #include "touch.h"
+  40          #include "pic.h"
+  41          
+  42          
+  43          //========================variable==========================//
+  44          u16 ColorTab[5]={RED,GREEN,BLUE,YELLOW,BRED};//定义颜色数组
+  45          //=====================end of variable======================//
+  46          
+  47          /*****************************************************************************
+  48           * @name       :void DrawTestPage(u8 *str)
+  49           * @date       :2018-08-09 
+  50           * @function   :Drawing test interface
+  51           * @parameters :str:the start address of the Chinese and English strings
+  52           * @retvalue   :None
+  53          ******************************************************************************/ 
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 2   
+
+  54          void DrawTestPage(u8 *str)
+  55          {
+  56   1      //绘制固定栏up
+  57   1      LCD_Clear(WHITE);
+  58   1      LCD_Fill(0,0,lcddev.width,20,BLUE);
+  59   1      //绘制固定栏down
+  60   1      LCD_Fill(0,lcddev.height-20,lcddev.width,lcddev.height,BLUE);
+  61   1      POINT_COLOR=WHITE;
+  62   1      Gui_StrCenter(0,2,WHITE,BLUE,str,16,1);//居中显示
+  63   1      Gui_StrCenter(0,lcddev.height-18,WHITE,BLUE,"http://www.lcdwiki.com",16,1);//居中显示
+  64   1      //绘制测试区域
+  65   1      //LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE);
+  66   1      }
+  67          
+  68          /*****************************************************************************
+  69           * @name       :void main_test(void)
+  70           * @date       :2018-08-09 
+  71           * @function   :Drawing the main Interface of the Comprehensive Test Program
+  72           * @parameters :None
+  73           * @retvalue   :None
+  74          ******************************************************************************/
+  75          void main_test(void)
+  76          {
+  77   1        DrawTestPage("全动电子综合测试程序");
+  78   1        
+  79   1        Gui_StrCenter(0,30,RED,BLUE,"全动电子",16,1);//居中显示
+  80   1        Gui_StrCenter(0,60,RED,BLUE,"综合测试程序",16,1);//居中显示 
+  81   1        Gui_StrCenter(0,90,GREEN,BLUE,"2.8\" ILI9341 240X320",16,1);//居中显示
+  82   1        Gui_StrCenter(0,120,BLUE,BLUE,"xiaoFeng@QDtech 2018-08-20",16,1);//居中显示
+  83   1        delay_ms(1500);   
+  84   1        delay_ms(1500);
+  85   1      }
+  86          
+  87          /*****************************************************************************
+  88           * @name       :void Test_Color(void)
+  89           * @date       :2018-08-09 
+  90           * @function   :Color fill test(white,black,red,green,blue)
+  91           * @parameters :None
+  92           * @retvalue   :None
+  93          ******************************************************************************/
+  94          void Test_Color(void)
+  95          {
+  96   1        //DrawTestPage("测试1:纯色填充测试");
+  97   1        LCD_Fill(0,0,lcddev.width,lcddev.height,WHITE);
+  98   1        Show_Str(20,30,BLUE,YELLOW,"BL Test",16,1);delay_ms(800);
+  99   1        LCD_Fill(0,0,lcddev.width,lcddev.height,RED);
+ 100   1        Show_Str(20,30,BLUE,YELLOW,"RED ",16,1);delay_ms(800);
+ 101   1        LCD_Fill(0,0,lcddev.width,lcddev.height,GREEN);
+ 102   1        Show_Str(20,30,BLUE,YELLOW,"GREEN ",16,1);delay_ms(800);
+ 103   1        LCD_Fill(0,0,lcddev.width,lcddev.height,BLUE);
+ 104   1        Show_Str(20,30,RED,YELLOW,"BLUE ",16,1);delay_ms(800);
+ 105   1      }
+ 106          
+ 107          /*****************************************************************************
+ 108           * @name       :void Test_FillRec(void)
+ 109           * @date       :2018-08-09 
+ 110           * @function   :Rectangular display and fill test
+ 111                          Display red,green,blue,yellow,pink rectangular boxes in turn,
+ 112                          1500 milliseconds later,
+ 113                          Fill the rectangle in red,green,blue,yellow and pink in turn
+ 114           * @parameters :None
+ 115           * @retvalue   :None
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 3   
+
+ 116          ******************************************************************************/
+ 117          void Test_FillRec(void)
+ 118          {
+ 119   1        u8 i=0;
+ 120   1        DrawTestPage("测试2:GUI矩形填充测试");
+ 121   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE);
+ 122   1        for (i=0; i<5; i++) 
+ 123   1        {
+ 124   2          POINT_COLOR=ColorTab[i];
+ 125   2          LCD_DrawRectangle(lcddev.width/2-80+(i*15),lcddev.height/2-80+(i*15),lcddev.width/2-80+(i*15)+60,lcddev.
+             -height/2-80+(i*15)+60); 
+ 126   2        }
+ 127   1        delay_ms(1500); 
+ 128   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE); 
+ 129   1        for (i=0; i<5; i++) 
+ 130   1        {
+ 131   2          POINT_COLOR=ColorTab[i];
+ 132   2          LCD_DrawFillRectangle(lcddev.width/2-80+(i*15),lcddev.height/2-80+(i*15),lcddev.width/2-80+(i*15)+60,lcd
+             -dev.height/2-80+(i*15)+60);     
+ 133   2        }
+ 134   1        delay_ms(1500);
+ 135   1      }
+ 136          
+ 137          /*****************************************************************************
+ 138           * @name       :void Test_Circle(void)
+ 139           * @date       :2018-08-09 
+ 140           * @function   :circular display and fill test
+ 141                          Display red,green,blue,yellow,pink circular boxes in turn,
+ 142                          1500 milliseconds later,
+ 143                          Fill the circular in red,green,blue,yellow and pink in turn
+ 144           * @parameters :None
+ 145           * @retvalue   :None
+ 146          ******************************************************************************/
+ 147          void Test_Circle(void)
+ 148          {
+ 149   1        u8 i=0;
+ 150   1        DrawTestPage("测试3:GUI画圆填充测试");
+ 151   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE);
+ 152   1        for (i=0; i<5; i++)  
+ 153   1          gui_circle(lcddev.width/2-80+(i*25),lcddev.height/2-50+(i*25),ColorTab[i],30,0);
+ 154   1        delay_ms(1500); 
+ 155   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE); 
+ 156   1        for (i=0; i<5; i++) 
+ 157   1            gui_circle(lcddev.width/2-80+(i*25),lcddev.height/2-50+(i*25),ColorTab[i],30,1);
+ 158   1        delay_ms(1500);
+ 159   1      }
+ 160          
+ 161          /*****************************************************************************
+ 162           * @name       :void Test_Triangle(void)
+ 163           * @date       :2018-08-09 
+ 164           * @function   :triangle display and fill test
+ 165                          Display red,green,blue,yellow,pink triangle boxes in turn,
+ 166                          1500 milliseconds later,
+ 167                          Fill the triangle in red,green,blue,yellow and pink in turn
+ 168           * @parameters :None
+ 169           * @retvalue   :None
+ 170          ******************************************************************************/
+ 171          void Test_Triangle(void)
+ 172          {
+ 173   1        u8 i=0;
+ 174   1        DrawTestPage("测试4:GUI Triangle填充测试");
+ 175   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE);
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 4   
+
+ 176   1        for(i=0;i<5;i++)
+ 177   1        {
+ 178   2          POINT_COLOR=ColorTab[i];
+ 179   2          Draw_Triangel(lcddev.width/2-80+(i*20),lcddev.height/2-20+(i*15),lcddev.width/2-50-1+(i*20),lcddev.heigh
+             -t/2-20-52-1+(i*15),lcddev.width/2-20-1+(i*20),lcddev.height/2-20+(i*15));
+ 180   2        }
+ 181   1        delay_ms(1500); 
+ 182   1        LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE); 
+ 183   1        for(i=0;i<5;i++)
+ 184   1        {
+ 185   2          POINT_COLOR=ColorTab[i];
+ 186   2          Fill_Triangel(lcddev.width/2-80+(i*20),lcddev.height/2-20+(i*15),lcddev.width/2-50-1+(i*20),lcddev.heigh
+             -t/2-20-52-1+(i*15),lcddev.width/2-20-1+(i*20),lcddev.height/2-20+(i*15));
+ 187   2        }
+ 188   1        delay_ms(1500);
+ 189   1      }
+ 190          
+ 191          /*****************************************************************************
+ 192           * @name       :void English_Font_test(void)
+ 193           * @date       :2018-08-09 
+ 194           * @function   :English display test
+ 195           * @parameters :None
+ 196           * @retvalue   :None
+ 197          ******************************************************************************/
+ 198          void English_Font_test(void)
+ 199          {
+ 200   1        DrawTestPage("测试5:英文显示测试");
+ 201   1        POINT_COLOR=RED;
+ 202   1        BACK_COLOR=BLUE;
+ 203   1        LCD_ShowString(10,30,12,"6X12:abcdefghijklmnopqrstuvwxyz",0);
+ 204   1        LCD_ShowString(10,45,12,"6X12:ABCDEFGHIJKLMNOP0123456789",1);
+ 205   1        LCD_ShowString(10,60,12,"6X12:~!@#$%^&*()_+{}:<>?/|-+.",0);
+ 206   1        LCD_ShowString(10,80,16,"8X16:abcdefghijklmnopqrstuvw",0);
+ 207   1        LCD_ShowString(10,100,16,"8X16:ABCDEFGHIJKLMN01234567",1);
+ 208   1        LCD_ShowString(10,120,16,"8X16:~!@#$%^&*()_+{}:<>?/|",0); 
+ 209   1        delay_ms(1200);
+ 210   1      }
+ 211          
+ 212          /*****************************************************************************
+ 213           * @name       :void Chinese_Font_test(void)
+ 214           * @date       :2018-08-09 
+ 215           * @function   :chinese display test
+ 216           * @parameters :None
+ 217           * @retvalue   :None
+ 218          ******************************************************************************/
+ 219          void Chinese_Font_test(void)
+ 220          { 
+ 221   1        DrawTestPage("测试6:中文显示测试");
+ 222   1        Show_Str(10,30,BLUE,YELLOW,"16X16:全动电子技术有限公司欢迎您",16,0);
+ 223   1        Show_Str(10,50,BLUE,YELLOW,"16X16:Welcome全动电子",16,0);
+ 224   1        Show_Str(10,70,BLUE,YELLOW,"24X24:深圳市中文测试",24,1);
+ 225   1        Show_Str(10,100,BLUE,YELLOW,"32X32:字体测试",32,1);
+ 226   1        delay_ms(1200);
+ 227   1      }
+ 228          
+ 229          /*****************************************************************************
+ 230           * @name       :void Pic_test(void)
+ 231           * @date       :2018-08-09 
+ 232           * @function   :picture display test
+ 233           * @parameters :None
+ 234           * @retvalue   :None
+ 235          ******************************************************************************/
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 5   
+
+ 236          void Pic_test(void)
+ 237          {
+ 238   1        DrawTestPage("测试7:图片显示测试");
+ 239   1        //LCD_Fill(0,20,lcddev.width,lcddev.height-20,WHITE);
+ 240   1        Gui_Drawbmp16(30,30,gImage_qq);
+ 241   1        Show_Str(30+12,75,BLUE,YELLOW,"QQ",16,1);
+ 242   1        Gui_Drawbmp16(90,30,gImage_qq);
+ 243   1        Show_Str(90+12,75,BLUE,YELLOW,"QQ",16,1);
+ 244   1        Gui_Drawbmp16(150,30,gImage_qq);
+ 245   1        Show_Str(150+12,75,BLUE,YELLOW,"QQ",16,1);
+ 246   1        delay_ms(1200);
+ 247   1      }
+ 248          
+ 249          /*****************************************************************************
+ 250           * @name       :void Rotate_Test(void)
+ 251           * @date       :2018-08-09 
+ 252           * @function   :rotate test
+ 253           * @parameters :None
+ 254           * @retvalue   :None
+ 255          ******************************************************************************/
+ 256          void Rotate_Test(void)
+ 257          {
+ 258   1        u8 i=0;
+ 259   1        u8 *Direction[4]={"Rotation:0","Rotation:90","Rotation:180","Rotation:270"};
+ 260   1        
+ 261   1        for(i=0;i<4;i++)
+ 262   1        {
+ 263   2        LCD_direction(i);
+ 264   2        DrawTestPage("测试8:屏幕角度测试");
+ 265   2        Show_Str(20,30,BLUE,YELLOW,Direction[i],16,1);
+ 266   2        Gui_Drawbmp16(30,50,gImage_qq);
+ 267   2        delay_ms(1000);delay_ms(1000);
+ 268   2        }
+ 269   1        LCD_direction(USE_HORIZONTAL);
+ 270   1      }
+ 271          
+ 272          /*****************************************************************************
+ 273           * @name       :void Touch_Test(void)
+ 274           * @date       :2018-08-09 
+ 275           * @function   :touch test
+ 276           * @parameters :None
+ 277           * @retvalue   :None
+ 278          ******************************************************************************/
+ 279          void Touch_Test(void)
+ 280          { 
+ 281   1        u8 i=0;
+ 282   1        u16 j=0;
+ 283   1        u16 colorTemp=0;    
+ 284   1        DrawTestPage("测试9:Touch测试  ");
+ 285   1        LCD_ShowString(lcddev.width-24,0,16,"RST",1);//显示清屏区域
+ 286   1        LCD_Fill(lcddev.width-52,2,lcddev.width-50+20,18,RED); 
+ 287   1        POINT_COLOR=RED;
+ 288   1        while(1)
+ 289   1        {    
+ 290   2          if(Convert_Pos())     //触摸屏被按下
+ 291   2          { 
+ 292   3            if(tp_pixlcd.x<lcddev.width&&tp_pixlcd.y<lcddev.height)
+ 293   3            { 
+ 294   4              if(tp_pixlcd.x>(lcddev.width-24)&&tp_pixlcd.y<16)
+ 295   4              {
+ 296   5                DrawTestPage("测试9:Touch测试  ");//清除
+ 297   5                LCD_ShowString(lcddev.width-24,0,16,"RST",1);//显示清屏区域
+C51 COMPILER V9.00   TEST                                                                  04/10/2022 16:57:38 PAGE 6   
+
+ 298   5                POINT_COLOR=colorTemp;
+ 299   5                LCD_Fill(lcddev.width-52,2,lcddev.width-50+20,18,POINT_COLOR); 
+ 300   5              }
+ 301   4              else if((tp_pixlcd.x>(lcddev.width-60)&&tp_pixlcd.x<(lcddev.width-50+20))&&tp_pixlcd.y<20)
+ 302   4              {
+ 303   5              LCD_Fill(lcddev.width-52,2,lcddev.width-50+20,18,ColorTab[j%5]); 
+ 304   5              POINT_COLOR=ColorTab[(j++)%5];
+ 305   5              colorTemp=POINT_COLOR;
+ 306   5              delay_ms(10);
+ 307   5              }
+ 308   4      
+ 309   4              else 
+ 310   4              TP_Draw_Big_Point(tp_pixlcd.x,tp_pixlcd.y,POINT_COLOR);            
+ 311   4            }
+ 312   3          }else delay_ms(10); //没有按键按下的时候              
+ 313   2        }   
+ 314   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   3570    ----
+   CONSTANT SIZE    =   3842    ----
+   XDATA SIZE       =     10      24
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

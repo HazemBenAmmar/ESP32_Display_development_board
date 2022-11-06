@@ -1,0 +1,815 @@
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 1   
+
+
+C51 COMPILER V9.00, COMPILATION OF MODULE GUI
+OBJECT MODULE PLACED IN .\obj\gui.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE GUI\gui.c LARGE OPTIMIZE(8,SPEED) BROWSE INCDIR(.\font;.\LCD;.\sys;.\tou
+                    -ch;.\GUI;.\USER) DEBUG OBJECTEXTEND PRINT(.\gui.lst) TABS(2) OBJECT(.\obj\gui.obj)
+
+line level    source
+
+   1          //////////////////////////////////////////////////////////////////////////////////   
+   2          //本程序只供学习使用，未经作者许可，不得用于其它任何用途
+   3          //测试硬件：单片机STC89C52RC,晶振30M  单片机工作电压3.3V
+   4          //TFT液晶驱动 for C51
+   5          //淘宝网站：http://jczn.taobao.com
+   6          //All rights reserved
+   7          //********************************************************************************
+   8          //=========================================电源接线================================================//
+   9          //5V接DC 5V电源
+  10          //GND接地
+  11          //=======================================液晶屏数据线接线==========================================//
+  12          //本模块默认数据总线类型为SPI
+  13          //液晶屏模块            单片机
+  14          // SDI(MOSI)     接       P15        //SPI写信号
+  15          // SDO(MISO)     接       P16        //SPI读信号，如果不需要读功能，此管脚可不接
+  16          //=======================================液晶屏控制线接线==========================================//
+  17          //液晶屏模块            单片机
+  18          //  CS           接       P13       //片选控制信号
+  19          //  RESET        接       P33       //复位信号
+  20          //  DC           接       P12       //数据/命令选择控制信号
+  21          //  SCK          接       P17       //SPI时钟信号
+  22          //  LED          接       P32       //背光控制信号，如果使用STC89C52RC单片机或者不需要控制，接3.3V
+  23          //=========================================触摸屏接线=========================================//
+  24          //STC89C52RC单片机ROM太小，无法运行带触摸功能的程序，所以触摸屏不需要接线
+  25          //不使用触摸或者模块本身不带触摸，则可不连接
+  26          //触摸屏使用的数据总线类型为SPI
+  27          //触摸屏模块            单片机
+  28          //  T_CLK        接       P36       //触摸屏SPI时钟信号
+  29          //  T_CS         接       P37       //触摸屏片选控制信号
+  30          //  T_DIN        接       P34       //触摸屏SPI写信号
+  31          //  T_DO         接       P35       //触摸屏SPI读信号
+  32          //  T_IRQ        接       P40       //触摸屏响应检查信号，如单片机无P4组，请自行更改其他可用IO并修改代码定
+             -义
+  33          //**************************************************************************************************/ 
+  34          #include "lcd.h"
+  35          #include "font.h" 
+  36          #include "sys.h"
+  37          #include "gui.h"
+  38          #include "string.h"
+  39          
+  40          /*******************************************************************
+  41           * @name       :void GUI_DrawPoint(u16 x,u16 y,u16 color)
+  42           * @date       :2018-08-09 
+  43           * @function   :draw a point in LCD screen
+  44           * @parameters :x:the x coordinate of the point
+  45                          y:the y coordinate of the point
+  46                          color:the color value of the point
+  47           * @retvalue   :None
+  48          ********************************************************************/
+  49          
+  50          void GUI_DrawPoint(u16 x,u16 y,u16 color)
+  51          {
+  52   1        LCD_SetCursor(x,y);//设置光标位置 
+  53   1        LCD_WR_DATA_16Bit(color); 
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 2   
+
+  54   1      }
+  55          
+  56          /*******************************************************************
+  57           * @name       :void LCD_Fill(u16 sx,u16 sy,u16 ex,u16 ey,u16 color)
+  58           * @date       :2018-08-09 
+  59           * @function   :fill the specified area
+  60           * @parameters :sx:the bebinning x coordinate of the specified area
+  61                          sy:the bebinning y coordinate of the specified area
+  62                          ex:the ending x coordinate of the specified area
+  63                          ey:the ending y coordinate of the specified area
+  64                          color:the filled color value
+  65           * @retvalue   :None
+  66          ********************************************************************/
+  67          void LCD_Fill(u16 sx,u16 sy,u16 ex,u16 ey,u16 color)
+  68          {   
+  69   1        u16 i,j;      
+  70   1        u16 width=ex-sx+1;    //得到填充的宽度
+  71   1        u16 height=ey-sy+1;   //高度
+  72   1        LCD_SetWindows(sx,sy,ex,ey);//设置显示窗口
+  73   1        for(i=0;i<height;i++)
+  74   1        {
+  75   2          for(j=0;j<width;j++)
+  76   2          LCD_WR_DATA_16Bit(color); //写入数据   
+  77   2        }
+  78   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复窗口设置为全屏
+  79   1      }
+  80          
+  81          /*******************************************************************
+  82           * @name       :void LCD_DrawLine(u16 x1, u16 y1, u16 x2, u16 y2)
+  83           * @date       :2018-08-09 
+  84           * @function   :Draw a line between two points
+  85           * @parameters :x1:the bebinning x coordinate of the line
+  86                          y1:the bebinning y coordinate of the line
+  87                          x2:the ending x coordinate of the line
+  88                          y2:the ending y coordinate of the line
+  89           * @retvalue   :None
+  90          ********************************************************************/
+  91          void LCD_DrawLine(u16 x1, u16 y1, u16 x2, u16 y2)
+  92          {
+  93   1        u16 t; 
+  94   1        int xerr=0,yerr=0,delta_x,delta_y,distance; 
+  95   1        int incx,incy,uRow,uCol; 
+  96   1      
+  97   1        delta_x=x2-x1; //计算坐标增量 
+  98   1        delta_y=y2-y1; 
+  99   1        uRow=x1; 
+ 100   1        uCol=y1; 
+ 101   1        if(delta_x>0)incx=1; //设置单步方向 
+ 102   1        else if(delta_x==0)incx=0;//垂直线 
+ 103   1        else {incx=-1;delta_x=-delta_x;} 
+ 104   1        if(delta_y>0)incy=1; 
+ 105   1        else if(delta_y==0)incy=0;//水平线 
+ 106   1        else{incy=-1;delta_y=-delta_y;} 
+ 107   1        if( delta_x>delta_y)distance=delta_x; //选取基本增量坐标轴 
+ 108   1        else distance=delta_y; 
+ 109   1        for(t=0;t<=distance+1;t++ )//画线输出 
+ 110   1        {  
+ 111   2          LCD_DrawPoint(uRow,uCol);//画点 
+ 112   2          xerr+=delta_x ; 
+ 113   2          yerr+=delta_y ; 
+ 114   2          if(xerr>distance) 
+ 115   2          { 
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 3   
+
+ 116   3            xerr-=distance; 
+ 117   3            uRow+=incx; 
+ 118   3          } 
+ 119   2          if(yerr>distance) 
+ 120   2          { 
+ 121   3            yerr-=distance; 
+ 122   3            uCol+=incy; 
+ 123   3          } 
+ 124   2        }  
+ 125   1      } 
+ 126          
+ 127          /*****************************************************************************
+ 128           * @name       :void LCD_DrawRectangle(u16 x1, u16 y1, u16 x2, u16 y2)
+ 129           * @date       :2018-08-09 
+ 130           * @function   :Draw a rectangle
+ 131           * @parameters :x1:the bebinning x coordinate of the rectangle
+ 132                          y1:the bebinning y coordinate of the rectangle
+ 133                          x2:the ending x coordinate of the rectangle
+ 134                          y2:the ending y coordinate of the rectangle
+ 135           * @retvalue   :None
+ 136          ******************************************************************************/
+ 137          void LCD_DrawRectangle(u16 x1, u16 y1, u16 x2, u16 y2)
+ 138          {
+ 139   1        LCD_DrawLine(x1,y1,x2,y1);
+ 140   1        LCD_DrawLine(x1,y1,x1,y2);
+ 141   1        LCD_DrawLine(x1,y2,x2,y2);
+ 142   1        LCD_DrawLine(x2,y1,x2,y2);
+ 143   1      }  
+ 144          
+ 145          /*****************************************************************************
+ 146           * @name       :void LCD_DrawFillRectangle(u16 x1, u16 y1, u16 x2, u16 y2)
+ 147           * @date       :2018-08-09 
+ 148           * @function   :Filled a rectangle
+ 149           * @parameters :x1:the bebinning x coordinate of the filled rectangle
+ 150                          y1:the bebinning y coordinate of the filled rectangle
+ 151                          x2:the ending x coordinate of the filled rectangle
+ 152                          y2:the ending y coordinate of the filled rectangle
+ 153           * @retvalue   :None
+ 154          ******************************************************************************/  
+ 155          void LCD_DrawFillRectangle(u16 x1, u16 y1, u16 x2, u16 y2)
+ 156          {
+ 157   1        LCD_Fill(x1,y1,x2,y2,POINT_COLOR);
+ 158   1      
+ 159   1      }
+ 160           
+ 161          /*****************************************************************************
+ 162           * @name       :void _draw_circle_8(int xc, int yc, int x, int y, u16 c)
+ 163           * @date       :2018-08-09 
+ 164           * @function   :8 symmetry circle drawing algorithm (internal call)
+ 165           * @parameters :xc:the x coordinate of the Circular center 
+ 166                          yc:the y coordinate of the Circular center 
+ 167                          x:the x coordinate relative to the Circular center 
+ 168                          y:the y coordinate relative to the Circular center 
+ 169                          c:the color value of the circle
+ 170           * @retvalue   :None
+ 171          ******************************************************************************/  
+ 172          void _draw_circle_8(int xc, int yc, int x, int y, u16 c)
+ 173          {
+ 174   1        GUI_DrawPoint(xc + x, yc + y, c);
+ 175   1      
+ 176   1        GUI_DrawPoint(xc - x, yc + y, c);
+ 177   1      
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 4   
+
+ 178   1        GUI_DrawPoint(xc + x, yc - y, c);
+ 179   1      
+ 180   1        GUI_DrawPoint(xc - x, yc - y, c);
+ 181   1      
+ 182   1        GUI_DrawPoint(xc + y, yc + x, c);
+ 183   1      
+ 184   1        GUI_DrawPoint(xc - y, yc + x, c);
+ 185   1      
+ 186   1        GUI_DrawPoint(xc + y, yc - x, c);
+ 187   1      
+ 188   1        GUI_DrawPoint(xc - y, yc - x, c);
+ 189   1      }
+ 190          
+ 191          /*****************************************************************************
+ 192           * @name       :void gui_circle(int xc, int yc,u16 c,int r, int fill)
+ 193           * @date       :2018-08-09 
+ 194           * @function   :Draw a circle of specified size at a specified location
+ 195           * @parameters :xc:the x coordinate of the Circular center 
+ 196                          yc:the y coordinate of the Circular center 
+ 197                          r:Circular radius
+ 198                          fill:1-filling,0-no filling
+ 199           * @retvalue   :None
+ 200          ******************************************************************************/  
+ 201          void gui_circle(int xc, int yc,u16 c,int r, int fill)
+ 202          {
+ 203   1        int x = 0, y = r, yi, d;
+ 204   1      
+ 205   1        d = 3 - 2 * r;
+ 206   1      
+ 207   1      
+ 208   1        if (fill) 
+ 209   1        {
+ 210   2          // 如果填充（画实心圆）
+ 211   2          while (x <= y) {
+ 212   3            for (yi = x; yi <= y; yi++)
+ 213   3              _draw_circle_8(xc, yc, x, yi, c);
+ 214   3      
+ 215   3            if (d < 0) {
+ 216   4              d = d + 4 * x + 6;
+ 217   4            } else {
+ 218   4              d = d + 4 * (x - y) + 10;
+ 219   4              y--;
+ 220   4            }
+ 221   3            x++;
+ 222   3          }
+ 223   2        } else 
+ 224   1        {
+ 225   2          // 如果不填充（画空心圆）
+ 226   2          while (x <= y) {
+ 227   3            _draw_circle_8(xc, yc, x, y, c);
+ 228   3            if (d < 0) {
+ 229   4              d = d + 4 * x + 6;
+ 230   4            } else {
+ 231   4              d = d + 4 * (x - y) + 10;
+ 232   4              y--;
+ 233   4            }
+ 234   3            x++;
+ 235   3          }
+ 236   2        }
+ 237   1      }
+ 238          
+ 239          /*****************************************************************************
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 5   
+
+ 240           * @name       :void Draw_Triangel(u16 x0,u16 y0,u16 x1,u16 y1,u16 x2,u16 y2)
+ 241           * @date       :2018-08-09 
+ 242           * @function   :Draw a triangle at a specified position
+ 243           * @parameters :x0:the bebinning x coordinate of the triangular edge 
+ 244                          y0:the bebinning y coordinate of the triangular edge 
+ 245                          x1:the vertex x coordinate of the triangular
+ 246                          y1:the vertex y coordinate of the triangular
+ 247                          x2:the ending x coordinate of the triangular edge 
+ 248                          y2:the ending y coordinate of the triangular edge 
+ 249           * @retvalue   :None
+ 250          ******************************************************************************/ 
+ 251          void Draw_Triangel(u16 x0,u16 y0,u16 x1,u16 y1,u16 x2,u16 y2)
+ 252          {
+ 253   1        LCD_DrawLine(x0,y0,x1,y1);
+ 254   1        LCD_DrawLine(x1,y1,x2,y2);
+ 255   1        LCD_DrawLine(x2,y2,x0,y0);
+ 256   1      }
+ 257          
+ 258          static void _swap(u16 *a, u16 *b)
+ 259          {
+ 260   1        u16 tmp;
+ 261   1        tmp = *a;
+ 262   1        *a = *b;
+ 263   1        *b = tmp;
+ 264   1      }
+ 265          
+ 266          /*****************************************************************************
+ 267           * @name       :void Fill_Triangel(u16 x0,u16 y0,u16 x1,u16 y1,u16 x2,u16 y2)
+ 268           * @date       :2018-08-09 
+ 269           * @function   :filling a triangle at a specified position
+ 270           * @parameters :x0:the bebinning x coordinate of the triangular edge 
+ 271                          y0:the bebinning y coordinate of the triangular edge 
+ 272                          x1:the vertex x coordinate of the triangular
+ 273                          y1:the vertex y coordinate of the triangular
+ 274                          x2:the ending x coordinate of the triangular edge 
+ 275                          y2:the ending y coordinate of the triangular edge 
+ 276           * @retvalue   :None
+ 277          ******************************************************************************/ 
+ 278          void Fill_Triangel(u16 x0,u16 y0,u16 x1,u16 y1,u16 x2,u16 y2)
+ 279          {
+ 280   1        u16 a, b, y, last;
+ 281   1        int dx01, dy01, dx02, dy02, dx12, dy12;
+ 282   1        long sa = 0;
+ 283   1        long sb = 0;
+ 284   1        if (y0 > y1) 
+ 285   1        {
+ 286   2          _swap(&y0,&y1); 
+ 287   2          _swap(&x0,&x1);
+ 288   2        }
+ 289   1        if (y1 > y2) 
+ 290   1        {
+ 291   2          _swap(&y2,&y1); 
+ 292   2          _swap(&x2,&x1);
+ 293   2        }
+ 294   1        if (y0 > y1) 
+ 295   1        {
+ 296   2          _swap(&y0,&y1); 
+ 297   2          _swap(&x0,&x1);
+ 298   2        }
+ 299   1        if(y0 == y2) 
+ 300   1        { 
+ 301   2          a = b = x0;
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 6   
+
+ 302   2          if(x1 < a)
+ 303   2          {
+ 304   3            a = x1;
+ 305   3          }
+ 306   2          else if(x1 > b)
+ 307   2          {
+ 308   3            b = x1;
+ 309   3          }
+ 310   2          if(x2 < a)
+ 311   2          {
+ 312   3            a = x2;
+ 313   3          }
+ 314   2          else if(x2 > b)
+ 315   2          {
+ 316   3            b = x2;
+ 317   3          }
+ 318   2          LCD_Fill(a,y0,b,y0,POINT_COLOR);
+ 319   2          return;
+ 320   2        }
+ 321   1        dx01 = x1 - x0;
+ 322   1        dy01 = y1 - y0;
+ 323   1        dx02 = x2 - x0;
+ 324   1        dy02 = y2 - y0;
+ 325   1        dx12 = x2 - x1;
+ 326   1        dy12 = y2 - y1;
+ 327   1        
+ 328   1        if(y1 == y2)
+ 329   1        {
+ 330   2          last = y1; 
+ 331   2        }
+ 332   1        else
+ 333   1        {
+ 334   2          last = y1-1; 
+ 335   2        }
+ 336   1        for(y=y0; y<=last; y++) 
+ 337   1        {
+ 338   2          a = x0 + sa / dy01;
+ 339   2          b = x0 + sb / dy02;
+ 340   2          sa += dx01;
+ 341   2          sb += dx02;
+ 342   2          if(a > b)
+ 343   2          {
+ 344   3            _swap(&a,&b);
+ 345   3          }
+ 346   2          LCD_Fill(a,y,b,y,POINT_COLOR);
+ 347   2        }
+ 348   1        sa = dx12 * (y - y1);
+ 349   1        sb = dx02 * (y - y0);
+ 350   1        for(; y<=y2; y++) 
+ 351   1        {
+ 352   2          a = x1 + sa / dy12;
+ 353   2          b = x0 + sb / dy02;
+ 354   2          sa += dx12;
+ 355   2          sb += dx02;
+ 356   2          if(a > b)
+ 357   2          {
+ 358   3            _swap(&a,&b);
+ 359   3          }
+ 360   2          LCD_Fill(a,y,b,y,POINT_COLOR);
+ 361   2        }
+ 362   1      }
+ 363          
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 7   
+
+ 364          /*****************************************************************************
+ 365           * @name       :void LCD_ShowChar(u16 x,u16 y,u16 fc, u16 bc, u8 num,u8 size,u8 mode)
+ 366           * @date       :2018-08-09 
+ 367           * @function   :Display a single English character
+ 368           * @parameters :x:the bebinning x coordinate of the Character display position
+ 369                          y:the bebinning y coordinate of the Character display position
+ 370                          fc:the color value of display character
+ 371                          bc:the background color of display character
+ 372                          num:the ascii code of display character(0~94)
+ 373                          size:the size of display character
+ 374                          mode:0-no overlying,1-overlying
+ 375           * @retvalue   :None
+ 376          ******************************************************************************/ 
+ 377          void LCD_ShowChar(u16 x,u16 y,u16 fc, u16 bc, u8 num,u8 size,u8 mode)
+ 378          {  
+ 379   1          u8 temp;
+ 380   1          u8 pos,t;
+ 381   1        u16 colortemp=POINT_COLOR;      
+ 382   1             
+ 383   1        num=num-' ';//得到偏移后的值
+ 384   1        LCD_SetWindows(x,y,x+size/2-1,y+size-1);//设置单个文字显示窗口
+ 385   1        if(!mode) //非叠加方式
+ 386   1        {
+ 387   2          
+ 388   2          for(pos=0;pos<size;pos++)
+ 389   2          {
+ 390   3            if(size==12)temp=asc2_1206[num][pos];//调用1206字体
+ 391   3            else temp=asc2_1608[num][pos];     //调用1608字体
+ 392   3            for(t=0;t<size/2;t++)
+ 393   3              {                 
+ 394   4                  if(temp&0x01)LCD_WR_DATA_16Bit(fc); 
+ 395   4              else LCD_WR_DATA_16Bit(bc); 
+ 396   4              temp>>=1; 
+ 397   4              
+ 398   4              }
+ 399   3            
+ 400   3          } 
+ 401   2        }else//叠加方式
+ 402   1        {
+ 403   2          for(pos=0;pos<size;pos++)
+ 404   2          {
+ 405   3            if(size==12)temp=asc2_1206[num][pos];//调用1206字体
+ 406   3            else temp=asc2_1608[num][pos];     //调用1608字体
+ 407   3            for(t=0;t<size/2;t++)
+ 408   3              {   
+ 409   4              POINT_COLOR=fc;              
+ 410   4                  if(temp&0x01)LCD_DrawPoint(x+t,y+pos);//画一个点    
+ 411   4                  temp>>=1; 
+ 412   4              }
+ 413   3          }
+ 414   2        }
+ 415   1        POINT_COLOR=colortemp;  
+ 416   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复窗口为全屏             
+ 417   1      }
+ 418          
+ 419          /*****************************************************************************
+ 420           * @name       :void LCD_ShowString(u16 x,u16 y,u8 size,u8 *p,u8 mode)
+ 421           * @date       :2018-08-09 
+ 422           * @function   :Display English string
+ 423           * @parameters :x:the bebinning x coordinate of the English string
+ 424                          y:the bebinning y coordinate of the English string
+ 425                          p:the start address of the English string
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 8   
+
+ 426                          size:the size of display character
+ 427                          mode:0-no overlying,1-overlying
+ 428           * @retvalue   :None
+ 429          ******************************************************************************/       
+ 430          void LCD_ShowString(u16 x,u16 y,u8 size,u8 *p,u8 mode)
+ 431          {         
+ 432   1          while((*p<='~')&&(*p>=' '))//判断是不是非法字符!
+ 433   1          {   
+ 434   2          if(x>(lcddev.width-1)||y>(lcddev.height-1)) 
+ 435   2          return;     
+ 436   2              LCD_ShowChar(x,y,POINT_COLOR,BACK_COLOR,*p,size,mode);
+ 437   2              x+=size/2;
+ 438   2              p++;
+ 439   2          }  
+ 440   1      } 
+ 441          
+ 442          /*****************************************************************************
+ 443           * @name       :u32 mypow(u8 m,u8 n)
+ 444           * @date       :2018-08-09 
+ 445           * @function   :get the nth power of m (internal call)
+ 446           * @parameters :m:the multiplier
+ 447                          n:the power
+ 448           * @retvalue   :the nth power of m
+ 449          ******************************************************************************/ 
+ 450          u32 mypow(u8 m,u8 n)
+ 451          {
+ 452   1        u32 result=1;  
+ 453   1        while(n--)result*=m;    
+ 454   1        return result;
+ 455   1      }
+ 456          
+ 457          /*****************************************************************************
+ 458           * @name       :void LCD_ShowNum(u16 x,u16 y,u32 num,u8 len,u8 size)
+ 459           * @date       :2018-08-09 
+ 460           * @function   :Display number
+ 461           * @parameters :x:the bebinning x coordinate of the number
+ 462                          y:the bebinning y coordinate of the number
+ 463                          num:the number(0~4294967295)
+ 464                          len:the length of the display number
+ 465                          size:the size of display number
+ 466           * @retvalue   :None
+ 467          ******************************************************************************/        
+ 468          void LCD_ShowNum(u16 x,u16 y,u32 num,u8 len,u8 size)
+ 469          {           
+ 470   1        u8 t,temp;
+ 471   1        u8 enshow=0;               
+ 472   1        for(t=0;t<len;t++)
+ 473   1        {
+ 474   2          temp=(num/mypow(10,len-t-1))%10;
+ 475   2          if(enshow==0&&t<(len-1))
+ 476   2          {
+ 477   3            if(temp==0)
+ 478   3            {
+ 479   4              LCD_ShowChar(x+(size/2)*t,y,POINT_COLOR,BACK_COLOR,' ',size,0);
+ 480   4              continue;
+ 481   4            }else enshow=1; 
+ 482   3             
+ 483   3          }
+ 484   2          LCD_ShowChar(x+(size/2)*t,y,POINT_COLOR,BACK_COLOR,temp+'0',size,0); 
+ 485   2        }
+ 486   1      } 
+ 487          
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 9   
+
+ 488          /*****************************************************************************
+ 489           * @name       :void GUI_DrawFont16(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 490           * @date       :2018-08-09 
+ 491           * @function   :Display a single 16x16 Chinese character
+ 492           * @parameters :x:the bebinning x coordinate of the Chinese character
+ 493                          y:the bebinning y coordinate of the Chinese character
+ 494                          fc:the color value of Chinese character
+ 495                          bc:the background color of Chinese character
+ 496                          s:the start address of the Chinese character
+ 497                          mode:0-no overlying,1-overlying
+ 498           * @retvalue   :None
+ 499          ******************************************************************************/ 
+ 500          void GUI_DrawFont16(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 501          {
+ 502   1        u8 i,j;
+ 503   1        u16 k;
+ 504   1        u16 HZnum;
+ 505   1        u16 x0=x;
+ 506   1        HZnum=sizeof(tfont16)/sizeof(typFNT_GB16);  //自动统计汉字数目
+ 507   1        
+ 508   1            
+ 509   1        for (k=0;k<HZnum;k++) 
+ 510   1        {
+ 511   2          if ((tfont16[k].Index[0]==*(s))&&(tfont16[k].Index[1]==*(s+1)))
+ 512   2          {   LCD_SetWindows(x,y,x+16-1,y+16-1);
+ 513   3              for(i=0;i<16*2;i++)
+ 514   3              {
+ 515   4              for(j=0;j<8;j++)
+ 516   4                { 
+ 517   5                if(!mode) //非叠加方式
+ 518   5                {
+ 519   6                  if(tfont16[k].Msk[i]&(0x80>>j)) LCD_WR_DATA_16Bit(fc);
+ 520   6                  else LCD_WR_DATA_16Bit(bc);
+ 521   6                }
+ 522   5                else
+ 523   5                {
+ 524   6                  POINT_COLOR=fc;
+ 525   6                  if(tfont16[k].Msk[i]&(0x80>>j)) LCD_DrawPoint(x,y);//画一个点
+ 526   6                  x++;
+ 527   6                  if((x-x0)==16)
+ 528   6                  {
+ 529   7                    x=x0;
+ 530   7                    y++;
+ 531   7                    break;
+ 532   7                  }
+ 533   6                }
+ 534   5      
+ 535   5              }
+ 536   4              
+ 537   4            }
+ 538   3            
+ 539   3            
+ 540   3          }           
+ 541   2          continue;  //查找到对应点阵字库立即退出，防止多个汉字重复取模带来影响
+ 542   2        }
+ 543   1      
+ 544   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复窗口为全屏  
+ 545   1      } 
+ 546          
+ 547          /*****************************************************************************
+ 548           * @name       :void GUI_DrawFont24(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 549           * @date       :2018-08-09 
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 10  
+
+ 550           * @function   :Display a single 24x24 Chinese character
+ 551           * @parameters :x:the bebinning x coordinate of the Chinese character
+ 552                          y:the bebinning y coordinate of the Chinese character
+ 553                          fc:the color value of Chinese character
+ 554                          bc:the background color of Chinese character
+ 555                          s:the start address of the Chinese character
+ 556                          mode:0-no overlying,1-overlying
+ 557           * @retvalue   :None
+ 558          ******************************************************************************/ 
+ 559          void GUI_DrawFont24(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 560          {
+ 561   1        u8 i,j;
+ 562   1        u16 k;
+ 563   1        u16 HZnum;
+ 564   1        u16 x0=x;
+ 565   1        HZnum=sizeof(tfont24)/sizeof(typFNT_GB24);  //自动统计汉字数目
+ 566   1          
+ 567   1            for (k=0;k<HZnum;k++) 
+ 568   1            {
+ 569   2              if ((tfont24[k].Index[0]==*(s))&&(tfont24[k].Index[1]==*(s+1)))
+ 570   2              {   LCD_SetWindows(x,y,x+24-1,y+24-1);
+ 571   3                  for(i=0;i<24*3;i++)
+ 572   3                  {
+ 573   4                    for(j=0;j<8;j++)
+ 574   4                    {
+ 575   5                      if(!mode) //非叠加方式
+ 576   5                      {
+ 577   6                        if(tfont24[k].Msk[i]&(0x80>>j)) LCD_WR_DATA_16Bit(fc);
+ 578   6                        else LCD_WR_DATA_16Bit(bc);
+ 579   6                      }
+ 580   5                    else
+ 581   5                    {
+ 582   6                      POINT_COLOR=fc;
+ 583   6                      if(tfont24[k].Msk[i]&(0x80>>j)) LCD_DrawPoint(x,y);//画一个点
+ 584   6                      x++;
+ 585   6                      if((x-x0)==24)
+ 586   6                      {
+ 587   7                        x=x0;
+ 588   7                        y++;
+ 589   7                        break;
+ 590   7                      }
+ 591   6                    }
+ 592   5                  }
+ 593   4                }
+ 594   3                
+ 595   3                
+ 596   3              }           
+ 597   2              continue;  //查找到对应点阵字库立即退出，防止多个汉字重复取模带来影响
+ 598   2            }
+ 599   1      
+ 600   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复窗口为全屏  
+ 601   1      }
+ 602          
+ 603          /*****************************************************************************
+ 604           * @name       :void GUI_DrawFont32(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 605           * @date       :2018-08-09 
+ 606           * @function   :Display a single 32x32 Chinese character
+ 607           * @parameters :x:the bebinning x coordinate of the Chinese character
+ 608                          y:the bebinning y coordinate of the Chinese character
+ 609                          fc:the color value of Chinese character
+ 610                          bc:the background color of Chinese character
+ 611                          s:the start address of the Chinese character
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 11  
+
+ 612                          mode:0-no overlying,1-overlying
+ 613           * @retvalue   :None
+ 614          ******************************************************************************/ 
+ 615          void GUI_DrawFont32(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
+ 616          {
+ 617   1        u8 i,j;
+ 618   1        u16 k;
+ 619   1        u16 HZnum;
+ 620   1        u16 x0=x;
+ 621   1        HZnum=sizeof(tfont32)/sizeof(typFNT_GB32);  //自动统计汉字数目
+ 622   1        for (k=0;k<HZnum;k++) 
+ 623   1            {
+ 624   2              if ((tfont32[k].Index[0]==*(s))&&(tfont32[k].Index[1]==*(s+1)))
+ 625   2              {   LCD_SetWindows(x,y,x+32-1,y+32-1);
+ 626   3                  for(i=0;i<32*4;i++)
+ 627   3                  {
+ 628   4                  for(j=0;j<8;j++)
+ 629   4                    {
+ 630   5                    if(!mode) //非叠加方式
+ 631   5                    {
+ 632   6                      if(tfont32[k].Msk[i]&(0x80>>j)) LCD_WR_DATA_16Bit(fc);
+ 633   6                      else LCD_WR_DATA_16Bit(bc);
+ 634   6                    }
+ 635   5                    else
+ 636   5                    {
+ 637   6                      POINT_COLOR=fc;
+ 638   6                      if(tfont32[k].Msk[i]&(0x80>>j)) LCD_DrawPoint(x,y);//画一个点
+ 639   6                      x++;
+ 640   6                      if((x-x0)==32)
+ 641   6                      {
+ 642   7                        x=x0;
+ 643   7                        y++;
+ 644   7                        break;
+ 645   7                      }
+ 646   6                    }
+ 647   5                  }
+ 648   4                }
+ 649   3                
+ 650   3                
+ 651   3              }           
+ 652   2              continue;  //查找到对应点阵字库立即退出，防止多个汉字重复取模带来影响
+ 653   2            }
+ 654   1        
+ 655   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复窗口为全屏  
+ 656   1      } 
+ 657          
+ 658          /*****************************************************************************
+ 659           * @name       :void Show_Str(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
+ 660           * @date       :2018-08-09 
+ 661           * @function   :Display Chinese and English strings
+ 662           * @parameters :x:the bebinning x coordinate of the Chinese and English strings
+ 663                          y:the bebinning y coordinate of the Chinese and English strings
+ 664                          fc:the color value of Chinese and English strings
+ 665                          bc:the background color of Chinese and English strings
+ 666                          str:the start address of the Chinese and English strings
+ 667                          size:the size of Chinese and English strings
+ 668                          mode:0-no overlying,1-overlying
+ 669           * @retvalue   :None
+ 670          ******************************************************************************/          
+ 671          void Show_Str(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
+ 672          {         
+ 673   1        u16 x0=x;                   
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 12  
+
+ 674   1          u8 bHz=0;     //字符或者中文 
+ 675   1          while(*str!=0)//数据未结束
+ 676   1          { 
+ 677   2              if(!bHz)
+ 678   2              {
+ 679   3            if(x>(lcddev.width-size/2)||y>(lcddev.height-size)) 
+ 680   3            return; 
+ 681   3                if(*str>0x80)bHz=1;//中文 
+ 682   3                else              //字符
+ 683   3                {          
+ 684   4                  if(*str==0x0D)//换行符号
+ 685   4                  {         
+ 686   5                      y+=size;
+ 687   5                x=x0;
+ 688   5                      str++; 
+ 689   5                  }  
+ 690   4                  else
+ 691   4              {
+ 692   5                if(size>16)//字库中没有集成12X24 16X32的英文字体,用8X16代替
+ 693   5                {  
+ 694   6                LCD_ShowChar(x,y,fc,bc,*str,16,mode);
+ 695   6                x+=8; //字符,为全字的一半 
+ 696   6                }
+ 697   5                else
+ 698   5                {
+ 699   6                LCD_ShowChar(x,y,fc,bc,*str,size,mode);
+ 700   6                x+=size/2; //字符,为全字的一半 
+ 701   6                }
+ 702   5              } 
+ 703   4              str++; 
+ 704   4                  
+ 705   4                }
+ 706   3              }else//中文 
+ 707   2              {   
+ 708   3            if(x>(lcddev.width-size)||y>(lcddev.height-size)) 
+ 709   3            return;  
+ 710   3                  bHz=0;//有汉字库    
+ 711   3            if(size==32)
+ 712   3            GUI_DrawFont32(x,y,fc,bc,str,mode);   
+ 713   3            else if(size==24)
+ 714   3            GUI_DrawFont24(x,y,fc,bc,str,mode); 
+ 715   3            else
+ 716   3            GUI_DrawFont16(x,y,fc,bc,str,mode);
+ 717   3              
+ 718   3                str+=2; 
+ 719   3                x+=size;//下一个汉字偏移      
+ 720   3              }            
+ 721   2          }   
+ 722   1      }
+ 723          
+ 724          /*****************************************************************************
+ 725           * @name       :void Gui_StrCenter(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
+ 726           * @date       :2018-08-09 
+ 727           * @function   :Centered display of English and Chinese strings
+ 728           * @parameters :x:the bebinning x coordinate of the Chinese and English strings
+ 729                          y:the bebinning y coordinate of the Chinese and English strings
+ 730                          fc:the color value of Chinese and English strings
+ 731                          bc:the background color of Chinese and English strings
+ 732                          str:the start address of the Chinese and English strings
+ 733                          size:the size of Chinese and English strings
+ 734                          mode:0-no overlying,1-overlying
+ 735           * @retvalue   :None
+C51 COMPILER V9.00   GUI                                                                   04/10/2022 16:57:38 PAGE 13  
+
+ 736          ******************************************************************************/ 
+ 737          void Gui_StrCenter(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
+ 738          {
+ 739   1        u16 len=strlen((const char *)str);
+ 740   1        u16 x1=(lcddev.width-len*8)/2;
+ 741   1        Show_Str(x+x1,y,fc,bc,str,size,mode);
+ 742   1      } 
+ 743           
+ 744          /*****************************************************************************
+ 745           * @name       :void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p)
+ 746           * @date       :2018-08-09 
+ 747           * @function   :Display a 16-bit BMP image
+ 748           * @parameters :x:the bebinning x coordinate of the BMP image
+ 749                          y:the bebinning y coordinate of the BMP image
+ 750                          p:the start address of image array
+ 751           * @retvalue   :None
+ 752          ******************************************************************************/ 
+ 753          void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p) //显示40*40 QQ图片
+ 754          {
+ 755   1          int i; 
+ 756   1        unsigned char picH,picL; 
+ 757   1        LCD_SetWindows(x,y,x+40-1,y+40-1);//窗口设置
+ 758   1          for(i=0;i<40*40;i++)
+ 759   1        { 
+ 760   2          picL=*(p+i*2);  //数据低位在前
+ 761   2          picH=*(p+i*2+1);        
+ 762   2          LCD_WR_DATA_16Bit(picH<<8|picL);              
+ 763   2        } 
+ 764   1        LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复显示窗口为全屏 
+ 765   1      
+ 766   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   7191    ----
+   CONSTANT SIZE    =   5874    ----
+   XDATA SIZE       =   ----     294
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
